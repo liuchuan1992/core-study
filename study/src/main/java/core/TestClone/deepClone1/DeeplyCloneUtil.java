@@ -18,6 +18,8 @@ public class DeeplyCloneUtil {
      * @throws Exception
      */
     protected static Object deepClone(Object obj) throws Exception{
+        if(obj == null)
+            return null;  //空值不赋值 10-12 新修改
         Object clone = obj;
         //Object clone = null; 我自己写的时候错误的地方
         if(obj instanceof Map)
