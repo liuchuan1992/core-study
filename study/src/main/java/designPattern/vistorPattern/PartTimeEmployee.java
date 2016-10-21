@@ -42,7 +42,7 @@ public class PartTimeEmployee implements Employee {
     }
 
     @Override
-    public void accept(Department vistor) {
-
+    public void accept(Department handler) {
+        handler.handle(this);
     }
 }

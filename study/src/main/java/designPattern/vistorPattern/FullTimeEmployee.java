@@ -2,12 +2,12 @@ package designPattern.vistorPattern;
 
 /**
  * @author : lvcf on 2016/10/21 16:58
- * @Description :
+ * @Description : 全职员工
  */
 public class FullTimeEmployee implements Employee {
 
     private String name;
-    private double weeklyWage;
+    private double weeklyWage; //基本工资
     private int workTime;
 
     public FullTimeEmployee(String name, double weeklyWage, int workTime) {
@@ -42,6 +42,6 @@ public class FullTimeEmployee implements Employee {
 
     @Override
     public void accept(Department handler) {
-
+        handler.handle(this);
     }
 }

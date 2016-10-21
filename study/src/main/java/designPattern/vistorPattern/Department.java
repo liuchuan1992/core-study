@@ -7,7 +7,7 @@ package designPattern.vistorPattern;
 public abstract class Department {
 
     //财务部处理类
-    public abstract void handle(FADepartment employee);
+    public abstract void handle(FullTimeEmployee employee);
 
     public abstract void handle(PartTimeEmployee employee);
 
