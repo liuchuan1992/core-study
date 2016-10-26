@@ -6,5 +6,11 @@
     <bean id="person" class="spring.Person">
         <property name="name" value="xingoo"/>
         <property name="age" value="12"/>
+        <property name="student" ref="student"/>
     </bean>
+
+    <bean id="student" class="spring.Student">
+        <property name="school" value="XS middle school"/>
+        <property name="trade" value="one"/>
+     </bean>
 </beans>

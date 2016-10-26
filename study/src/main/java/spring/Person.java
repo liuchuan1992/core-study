@@ -6,6 +6,7 @@ package spring;
  */
 public class Person {
 
+    private Student student;
     private String name;
     private int age;
 
@@ -26,6 +27,14 @@ public class Person {
     }
 
     public void sayHello(){
-        System.out.println("my name is "+name+",i am"+age+" years old");
+        System.out.println("my name is " + name + ",i am" + age + " years old, my school is " + student.getSchool() + ",my trade is " + student.getTrade());
+    }
+
+    public Student getStudent() {
+        return student;
+    }
+
+    public void setStudent(Student student) {
+        this.student = student;
     }
 }
