@@ -7,5 +7,5 @@ package core.TestClone.common.testA;
  */
 public class Person {
 
-    protected int age = 1;
+    protected int  age = 1;
 }

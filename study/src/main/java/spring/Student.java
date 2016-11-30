@@ -8,6 +8,11 @@ public class Student {
     private String school;
     private String trade;
 
+    public Student(String school, String trade) {
+        this.school = school;
+        this.trade = trade;
+    }
+
     public String getSchool() {
         return school;
     }

@@ -16,8 +16,6 @@ public class SpringIocDebug {
     @Test
     public void testClassPathXmlApplicationContext() {
         ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("bean.xml");
-        Person p = (Person) context.getBean("person");
-        p.sayHello();
     }
 
     /**
@@ -29,8 +27,6 @@ public class SpringIocDebug {
         DefaultListableBeanFactory factory = new DefaultListableBeanFactory();
         XmlBeanDefinitionReader xmlBeanDefinitionReader = new XmlBeanDefinitionReader(factory);
         xmlBeanDefinitionReader.loadBeanDefinitions(res);
-        Person p = (Person) factory.getBean("person");
-        p.sayHello();
         Assert.assertNotNull(factory.getBean("student"));
     }
 }

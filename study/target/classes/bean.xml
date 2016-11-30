@@ -3,13 +3,14 @@
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
        xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
 
-    <bean id="person" class="Person1" lazy-init="false">
+    <bean id="person" class="Person1" lazy-init="default">
         <property name="name" value="xingoo"/>
         <property name="age" value="12"/>
+        <property name="student" ref="student"/>
     </bean>
 
     <bean id="student" class="spring.Student" lazy-init="true">
         <property name="school" value="XS middle school"/>
         <property name="trade" value="one"/>
-     </bean>
+    </bean>
 </beans>

@@ -1,10 +1,11 @@
-package spring;
+import spring.Student;
 
 /**
  * @author : lvcf on 2016/10/25 16:19
  * @Description : pojo
  */
-public class Person {
+ class Person1 {
+
 
     private Student student;
     private String name;
