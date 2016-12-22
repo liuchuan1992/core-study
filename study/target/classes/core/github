@@ -1,0 +1,314 @@
+读写锁
+package com.myhexin.worker.extract.extractor.impl.fund;
+
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
+import com.myhexin.kit.Properties;
+import com.myhexin.logger.Logger;
+import com.myhexin.logger.Loggers;
+import com.myhexin.user.UserEvent;
+import com.myhexin.utils.DateUtil;
+import com.myhexin.worker.WorkerResult;
+import com.myhexin.worker.download.Downloader;
+import com.myhexin.worker.extract.ExtractTask;
+import com.myhexin.worker.extract.extractor.impl.CommonExtractor;
+import com.myhexin.worker.extract.extractor.impl.fund.model.*;
+import com.myhexin.worker.extract.schema.Model;
+import org.apache.commons.collections.map.HashedMap;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
+import us.codecraft.webmagic.selector.Json;
+
+import java.math.BigDecimal;
+import java.util.*;
+
+/**
+ * Created by yukf on 2016/9/20 16:26
+ */
+public class GuangFaExtractor extends CommonExtractor {
+
+    private static final Logger logger = Loggers.getLogger(GuangFaExtractor.class);
+
+    /*private static int cacheHash = 0;
+    private static HashMap<String, GuangFaFundCache> fundCache = new HashMap<>();
+    private static ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock();
+    private static ReentrantReadWriteLock.ReadLock readLock = readWriteLock.readLock();
+    private static ReentrantReadWriteLock.WriteLock writeLock = readWriteLock.writeLock();*/
+    public GuangFaExtractor(ExtractTask task, String page, Model... models) {
+        super(task, page, models);
+    }
+
+    @Override
+    public void extract(Callback callback) {
+        Model model = getModels().get(0);
+        Properties properties = new Properties();
+        UserEvent userEvent = getTask().getUserEvent();
+        try {
+            String step = getTask().getRequest().getStep();
+            switch (step) {
+                case "step0": {
+                    /*int thash = currentHtmlStr.hashCode();
+                    boolean hit = false;
+                    try {
+                        readLock.lockInterruptibly();
+                        if(cacheHash != 0 && thash == cacheHash) {
+                            //缓存命中
+                            hit = true;
+                        }
+                    } finally {
+                        readLock.unlock();
+                    }
+                    if(!hit) {
+                        try {
+                            writeLock.lockInterruptibly();
+                            fundCache.clear();
+                            Json json = new Json(currentHtmlStr);
+                            //解析所有基金
+                            List<String> funds = json.jsonPath("funds").all();
+                            for (String fund : funds) {
+                                Json fundJson = new Json(fund);
+                                String fundCode = fundJson.jsonPath("fundCode").get();
+                                String fundName = fundJson.jsonPath("fundName").get();
+                                String navDate = fundJson.jsonPath("navDate").get();
+                                String navUnit = fundJson.jsonPath("navUnit").get();
+                                String unitYield = fundJson.jsonPath("unitYield").get();
+                                String yearlyROE7 = fundJson.jsonPath("yearlyROE7").get();
+                                GuangFaFundCache cache = new GuangFaFundCache(fundCode, fundName, navDate, navUnit, unitYield, yearlyROE7);
+                                fundCache.put(fundCode, cache);
+                            }
+                            cacheHash = thash;
+                        } finally {
+                            writeLock.unlock();
+                        }
+                    }*/
+                    Map<String, GuangFaFundCache> fundCache = new HashMap<>();
+                    Json json = new Json(currentHtmlStr);
+                    //解析所有基金
+                    List<String> funds = json.jsonPath("funds").all();
+                    for (String fund : funds) {
+                        Json fundJson = new Json(fund);
+                        String fundCode = fundJson.jsonPath("fundCode").get();
+                        String fundName = fundJson.jsonPath("fundName").get();
+                        String navDate = fundJson.jsonPath("navDate").get();
+                        String navUnit = fundJson.jsonPath("navUnit").get();
+                        String unitYield = fundJson.jsonPath("unitYield").get();
+                        String yearlyROE7 = fundJson.jsonPath("yearlyROE7").get();
+                        GuangFaFundCache cache = new GuangFaFundCache(fundCode, fundName, navDate, navUnit, unitYield, yearlyROE7);
+                        fundCache.put(fundName, cache);
+                        fundCache.put(fundCode, cache);
+                    }
+                    userEvent.getParams().put("fundCache", JSON.toJSONString(fundCache));
+                    String url = "https://trade.gffunds.com.cn/main/sharedetail/query?_=" + new Date().getTime();
+                    String method = "post";
+                    List<Downloader.Header> redoHeaders = new ArrayList<>();
+                    Downloader.Request redoRequest = new Downloader.Request(url, method, "", redoHeaders).setStep("step1");
+                    getWorkerManager().done(new WorkerResult(getTargetPage(), getTask(), redoRequest));
+
+                    break;
+                }
+                case "step1": {
+                    //解析总资产
+                    Json json = new Json(currentHtmlStr);
+                    String totalAsset = json.jsonPath("data.totalCnyVal").get();
+                    Fund_asset asset = new Fund_asset();
+                    asset.setTotal_asset(BigDecimal.valueOf(Double.valueOf(totalAsset.replaceAll(",", "").replaceAll("，", ""))));
+                    properties.put(UserEvent.FUND_ASSET, asset);
+
+                    //解析钱袋子
+                    List<String> wallets = json.jsonPath("data.walletHoldsDetail").all();
+                    //解析基金
+                    wallets.addAll(json.jsonPath("data.normalHoldsDetail").all());
+                    List<Fund_position> positions = new ArrayList<>();
+
+                    Map fundCache = JSON.parseObject(userEvent.getParams().get("fundCache"), HashedMap.class);
+                    for (String wallet : wallets) {
+                        Json walletJson = new Json(wallet);
+                        Fund_position position = new Fund_position();
+                        String fund_code = walletJson.jsonPath("fundCode").get().trim(); //基金代码
+                        String fund_name = walletJson.jsonPath("fundName").get().trim(); //基金名称
+                        String cur_count = walletJson.jsonPath("totalShare").get().trim(); //当前份额
+                        String cur_nav = walletJson.jsonPath("nav").get().trim(); //当前净值
+                        String total_value = walletJson.jsonPath("totalVal").get().trim(); //当前市值
+                        position.setFund_code(fund_code);
+                        position.setFund_name(fund_name);
+                        position.setCur_count(BigDecimal.valueOf(Double.valueOf(cur_count.replaceAll(",", "").replaceAll("，", ""))));
+                        position.setCur_nav(BigDecimal.valueOf(Double.valueOf(cur_nav.replaceAll(",", "").replaceAll("，", ""))));
+                        position.setTotal_value(BigDecimal.valueOf(Double.valueOf(total_value.replaceAll(",", "").replaceAll("，", ""))));
+                        JSONObject jsonCache = (JSONObject) fundCache.get(fund_code);
+                        GuangFaFundCache cache = JSONObject.toJavaObject(jsonCache, GuangFaFundCache.class);
+                        position.setCur1_nav(BigDecimal.valueOf(Double.valueOf(cache.getUnitYield())));
+                        position.setCur2_nav(BigDecimal.valueOf(Double.valueOf(cache.getYearlyROE7())));
+                        positions.add(position);
+                    }
+                    properties.put(UserEvent.FUND_POSITION, positions);
+                    //发起流水请求
+                    getHistory(userEvent, currentRequest);
+
+                    break;
+                }
+                case "step2": {
+
+                    //先解析基金名称对应的基金代码
+                    if (userEvent.getParams().get("nameCodeCache") == null) {
+                        Element fundList = currentJsoup.select("#fundlist").first();
+                        JSONArray jsonArray = JSONArray.parseArray(fundList.attr("value"));
+                        for (int i = 0; i < jsonArray.size(); i++) {
+                            JSONObject obj = jsonArray.getJSONObject(i);
+                            String fundcode = obj.getString("fundcode");
+                            String fundname = obj.getString("fundname");
+                            userEvent.getParams().put(fundname, fundcode);
+                            userEvent.getParams().put("nameCodeCache", "1");
+                        }
+                    }
+                    //解析流水
+                    Elements trs = currentJsoup.select("#zxSale > table > tbody > tr");
+                    //Map fundCache = JSON.parseObject(userEvent.getParams().get("fundCache"),HashMap.class);
+                    for (Element tr : trs) {
+                        Fund_history history = new Fund_history();
+                        Elements tds = tr.getElementsByTag("td");
+                        String applyTime = tds.get(0).ownText().trim();
+                        String fundName = tds.get(1).ownText().trim();
+                        String op = tds.get(2).ownText().trim();
+                        String trans_count = tds.get(3).ownText().trim(); //交易份额好像都是 --
+                        String trans_amt = tds.get(4).ownText().trim();
+                        String app_status = tds.get(7).ownText();//申请状态
+                        String confirm_status = tds.get(8).ownText();//确认状态
+                        /*JSONObject jsonCache = (JSONObject) fundCache.get(fundName);
+                        GuangFaFundCache cache = JSONObject.toJavaObject(jsonCache, GuangFaFundCache.class);*/
+                        history.setFund_code(userEvent.getParams().get(fundName));
+                        history.setFund_name(fundName);
+                        String op_type = Fund_history.UNKNOW;
+                        if (op.contains("分红")) {
+                            op_type = Fund_history.DIVID_AMT;
+                        } else if (op.contains("申购") || op.contains("充值")) {
+                            op_type = Fund_history.BUY;
+                        } else if (op.contains("赎回")) {
+                            op_type = Fund_history.REDEEMS;
+                        }
+                        history.setOp_type(op_type);
+                        if (!"--".equals(trans_count)) {
+                            history.setTrans_count(BigDecimal.valueOf(Double.valueOf(trans_count)));
+                        }
+                        history.setTrans_amt(BigDecimal.valueOf(Double.valueOf(trans_amt.substring(0, trans_amt.length() - 1))));
+                        //发起流水详情
+                        getHistoryDetail(tds.get(9), history);
+                    }
+                    if (trs.size() > 0) {
+                        getHistory(userEvent, currentRequest);
+                    } else {
+                        //分红流水请求
+                        getDivide(userEvent, currentRequest);
+                    }
+                    break;
+                }
+                case "step3": {
+                    Json json = new Json(currentHtmlStr);
+                    String orderDate = json.jsonPath("data.orderDate").get();   //下单日期
+                    String orderTime = json.jsonPath("data.orderTime").get();   //下单时间
+                    String confirmDate = json.jsonPath("data.transInInfo[0].confirmDate").get();   //确认日期
+                    String confirmFee = json.jsonPath("data.transInInfo[0].confirmFee").get();  //手续费
+                    Fund_history history = (Fund_history) currentRequest.getExtendsFieldBykey("history");
+                    history.setTrans_date(confirmDate);
+                    history.setFee_comm(BigDecimal.valueOf(Double.valueOf(confirmFee)));
+                    properties.put(UserEvent.FUND_HISTORY, history);
+                    break;
+                }
+                case "step4": {
+                    //解析分红流水
+                    Elements trs = currentJsoup.select("#ejiaA1 > tbody > tr");
+                    if (trs.size() > 0) {
+                        List<GuangFaDivideHistory> divideHistorys = new ArrayList<>();
+                        for (int i = 1; i < trs.size(); i++) {
+                            Element tr = trs.get(i);
+                            Elements tds = tr.getElementsByTag("td");
+                            String fundName = tds.get(1).ownText().trim();
+                            String divide_date = tds.get(1).ownText().trim();
+                            String divid_to_count = tds.get(7).ownText().trim();
+                            String divid_amt = tds.get(6).ownText().trim();
+                            GuangFaDivideHistory divideHistory = new GuangFaDivideHistory(userEvent.getParams().get(fundName), fundName, divide_date, divid_to_count, divid_amt);
+                            divideHistorys.add(divideHistory);
+                        }
+                        //如果上一页的最后一条和这一页的最后一条重复，说明是重复的页面，也不再产生下一页
+                        List<GuangFaDivideHistory> temp_divide_historys = (List<GuangFaDivideHistory>) userEvent.getValue().get("temp_divide_historys");
+                        if (temp_divide_historys == null) {
+                            userEvent.getValue().put("temp_divide_historys", divideHistorys);
+                            //获取下一页
+                            getDivide(userEvent, currentRequest);
+                        } else {
+                            GuangFaDivideHistory lastHistory = temp_divide_historys.get(temp_divide_historys.size() - 1);
+                            GuangFaDivideHistory thisLastHistory = divideHistorys.get(divideHistorys.size() - 1);
+                            if (lastHistory.equals(thisLastHistory)) {
+                                //重复
+                                List<GuangFaDivideHistory> save = (List<GuangFaDivideHistory>) userEvent.getValue().get("temp_divide_historys");
+                                List<Fund_history> historyList = new ArrayList<>();
+                                for (GuangFaDivideHistory divideHistory : save) {
+                                    Fund_history history = new Fund_history();
+                                    history.setFund_code(divideHistory.getFundCode());
+                                    history.setFund_name(divideHistory.getFundName());
+                                    history.setDivid_to_count(BigDecimal.valueOf(Double.valueOf(divideHistory.getDivid_to_count())));
+                                    history.setDivid_amt(BigDecimal.valueOf(Double.valueOf(divideHistory.getDivid_amt())));
+                                    historyList.add(history);
+                                }
+                                properties.put(UserEvent.FUND_HISTORY, historyList);
+                                userEvent.getValue().remove("temp_divide_historys");
+                            } else {
+                                userEvent.getValue().put("temp_divide_historys", divideHistorys);
+                                //获取下一页
+                                getDivide(userEvent, currentRequest);
+                            }
+
+                        }
+                    }
+                    break;
+                }
+
+            }
+        } catch (Exception e) {
+            logger.error("解析失败：", e);
+        } finally {
+            callback.onModelExtracted(new Callback.ModelEntry(model, properties));
+        }
+    }
+
+    private void getDivide(UserEvent userEvent, Downloader.Request request) {
+        int currentPage = 1;
+        Object extend = request.getExtendsFieldBykey("divide_currentPage");
+        if (extend != null) {
+            currentPage = (int) extend;
+        }
+        String endDate = DateUtil.format(userEvent.getCurDate(), "yyyy-MM-dd");
+        String url = "https://trade.gffunds.com.cn/query/HistoryBonusQueryAction.do";
+        String entity = "token=&startDate=" + userEvent.getLastSync() + "&endDate=" + endDate + "&fundCode=&netNo=&selectType=4&pageNum=" + currentPage + "&pageSize=20&pageNumTop=&PageGo=&pageSizeTop=&SetPageSize=";
+        String method = "post";
+        List<Downloader.Header> redoHeaders = new ArrayList<>();
+        Downloader.Request redoRequest = new Downloader.Request(url, method, entity, redoHeaders).setStep("step4").addExtendFileds("currentPage", currentPage + 1).setHistoryReq(true);
+        getWorkerManager().done(new WorkerResult(getTargetPage(), getTask(), redoRequest));
+
+    }
+
+    private void getHistory(UserEvent userEvent, Downloader.Request request) {
+        int currentPage = 1;
+        Object extend = request.getExtendsFieldBykey("currentPage");
+        if (extend != null) {
+            currentPage = (int) extend;
+        }
+        String endDate = DateUtil.format(userEvent.getCurDate(), "yyyy-MM-dd");
+        String url = "https://trade.gffunds.com.cn/main/query/queryList";
+        String entity = "segDate=6&startDate=" + userEvent.getLastSync() + "&endDate=" + endDate + "&endDateVal=" + endDate + "&province=&fundCode=&fundName=&businType=&tradeCapital=&userType=2&pageNo=" + currentPage + "&pageSize=50";
+        String method = "post";
+        List<Downloader.Header> redoHeaders = new ArrayList<>();
+        Downloader.Request redoRequest = new Downloader.Request(url, method, entity, redoHeaders).setStep("step2").addExtendFileds("currentPage", currentPage + 1).setHistoryReq(true);
+        getWorkerManager().done(new WorkerResult(getTargetPage(), getTask(), redoRequest));
+    }
+
+    private void getHistoryDetail(Element td, Fund_history history) {
+        Elements inputs = td.getElementsByTag("input");
+        String url = "https://trade.gffunds.com.cn/main/query/queryDetailInfo?delegateNo=" + inputs.get(0).attr("value") + "&businType=" + inputs.get(4).attr("value") + "&requestType=" + inputs.get(2).attr("value") + "&_=" + new Date().getTime();
+        String method = "get";
+        List<Downloader.Header> redoHeaders = new ArrayList<>();
+        Downloader.Request redoRequest = new Downloader.Request(url, method, "", redoHeaders).setStep("step3").addExtendFileds("history", history).setHistoryReq(true);
+        getWorkerManager().done(new WorkerResult(getTargetPage(), getTask(), redoRequest));
+    }
+
+}
