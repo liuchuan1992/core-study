@@ -7,7 +7,7 @@ package bankSystem;
 public class BankVersion1 {
 
     public static void main(String[] args) {
-        System.out.print("请输入用户名：");
+        System.out.print("请输入用户名：11");
     }
 
 }
