@@ -14,7 +14,7 @@ public class StreamTest {
                 .map((v) -> Double.valueOf(v)) //String转Double
                 .filter((v) -> v > 2) //过滤
                 .sorted((v1, v2) -> v2.compareTo(v1))//降序排列
-                .limit(2)
+              //  .limit(2)
                 .forEach(v -> System.out.println(v));//终止操作 循环输出
     }
 }
